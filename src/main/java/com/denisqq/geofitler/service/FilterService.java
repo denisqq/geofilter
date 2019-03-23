@@ -6,7 +6,6 @@ import com.denisqq.geofitler.repo.LocationsRepository;
 import com.denisqq.rule.Rule;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -26,7 +25,8 @@ public class FilterService {
     final String DEBUG_STR = "getLocations";
     log.info("{}:", DEBUG_STR);
 
-    List<DeviceLocationsDto> ret = deviceMapper.toListDto(repository.findAll());
+    List<DeviceLocationsDto> ret = repository.deviceLocationsQuery();
+
 
 
     log.info("{}: ret={}", DEBUG_STR, ret);
@@ -36,6 +36,8 @@ public class FilterService {
   private List<Rule> initRules() {
     final String DEBUG_STR = "initRules";
     log.info("{}:", DEBUG_STR);
+
+
 
     return null;
   }
