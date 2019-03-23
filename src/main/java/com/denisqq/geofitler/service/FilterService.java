@@ -34,8 +34,8 @@ public class FilterService {
   }
 
   private List<Rule> initRules() {
-    final String DEUBUG_STR = "initRules";
-    log.info("{}:", DEUBUG_STR);
+    final String DEBUG_STR = "initRules";
+    log.info("{}:", DEBUG_STR);
 
     return null;
   }
