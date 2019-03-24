@@ -1,7 +1,10 @@
 package com.denisqq.geofitler.entity;
 
 import com.denisqq.geofitler.dto.DeviceLocationsDto;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Type;
 
@@ -55,12 +58,12 @@ import java.util.UUID;
     "                dl.latitude,\n" +
     "                dl.altitude,\n" +
     "                dl.date_time as \"dateTime\",\n" +
-    "                cast((1609.34 * 2 * 3961 * asin(sqrt((sin(radians((dl.latitude2 - dl.latitude) / 2))) ^ 2 +\n" +
+    "                (1609.34 * 2 * 3961 * asin(sqrt((sin(radians((dl.latitude2 - dl.latitude) / 2))) ^ 2 +\n" +
     "                                                cos(radians(dl.latitude)) * cos(radians(dl.latitude2)) *\n" +
     "                                                (sin(radians((dl.longitude2 - dl.longitude) / 2))) ^ 2))) / (abs(\n" +
-    "                    extract(seconds from (case\n" +
-    "                                            when extract(seconds from dl.date_time2 - dl.date_time) = 0 then '1 second'\n" +
-    "                                            else dl.date_time2 - dl.date_time end)))) as double precision)  as \"speed\"\n" +
+    "                    to_seconds(case\n" +
+    "                                            when to_seconds(dl.date_time2 - dl.date_time) = 0 then '1 second'\n" +
+    "                                            else dl.date_time2 - dl.date_time end))) speed\n" +
     "         from (\n" +
     "                select *,\n" +
     "                       coalesce(\n" +
@@ -80,7 +83,7 @@ import java.util.UUID;
     "                           dl.date_time\n" +
     "                         ) date_time2\n" +
     "                from dl\n" +
-    "                where dl.rank <= 3\n" +
+    "                where dl.rank <= 2\n" +
     "              ) dl\n" +
     "       )\n" +
     "  select *\n" +

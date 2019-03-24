@@ -11,7 +11,6 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @ToString
-@AllArgsConstructor
 public class DeviceLocationsDto implements Serializable {
   private static final long serialVersionUID = -9045374421056087490L;
   @Type(type="pg-uuid")
@@ -30,4 +29,17 @@ public class DeviceLocationsDto implements Serializable {
   private Double altitude;
 
   private Double speed;
+
+  private Boolean onCar;
+
+  public DeviceLocationsDto(UUID id, UUID deviceId, UUID employeeId, Date dateTime, Double latitude, Double longitude, Double altitude, Double speed) {
+    this.id = id;
+    this.deviceId = deviceId;
+    this.employeeId = employeeId;
+    this.dateTime = dateTime;
+    this.latitude = latitude;
+    this.longitude = longitude;
+    this.altitude = altitude;
+    this.speed = speed;
+  }
 }
