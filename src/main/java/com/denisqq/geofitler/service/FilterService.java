@@ -5,59 +5,29 @@ import com.denisqq.functions.LTrapezoid;
 import com.denisqq.functions.RTrapezoid;
 import com.denisqq.functions.Triangle;
 import com.denisqq.geofitler.dto.DeviceLocationsDto;
-import com.denisqq.geofitler.mapper.DeviceMapper;
-import com.denisqq.geofitler.repo.LocationsRepository;
+import com.denisqq.geofitler.dto.DeviceLocationsRequest;
 import com.denisqq.rule.Conclusion;
 import com.denisqq.rule.Condition;
 import com.denisqq.rule.Rule;
 import com.denisqq.rule.Variable;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.lang.reflect.Array;
 import java.util.*;
-import java.util.stream.Collectors;
-
-import static java.util.stream.Collectors.averagingDouble;
-import static java.util.stream.Collectors.groupingBy;
-
 
 @Component
 @Slf4j
 public class FilterService {
 
-  @Autowired
-  private LocationsRepository repository;
-
-  @Autowired
-  private DeviceMapper deviceMapper;
-
-  public List<DeviceLocationsDto> getLocations() {
+  public DeviceLocationsDto filterLocations(final DeviceLocationsRequest request) {
     final String DEBUG_STR = "getLocations";
     log.info("{}:", DEBUG_STR);
 
-    List<DeviceLocationsDto> ret = repository.deviceLocationsQuery();
+    DeviceLocationsDto ret = new DeviceLocationsDto();
     List<Rule> rules = initRules();
     Logic logic = new Logic();
     logic.setRules(rules);
-    Map<UUID, List<Double>> speeds = ret.stream()
-      .collect(groupingBy(DeviceLocationsDto::getDeviceId, Collectors.mapping(DeviceLocationsDto::getSpeed, Collectors.toList())));
-    log.info("{}: speeds={}", DEBUG_STR, speeds);
-    Map<UUID, Double> avgSpeed = ret.stream()
-      .collect(groupingBy(DeviceLocationsDto::getDeviceId, averagingDouble(DeviceLocationsDto::getSpeed)));
-    log.info("{}: avgSpeed={}", DEBUG_STR, avgSpeed);
-    speeds.forEach((key, value) -> {
-      Double fuzzyConclusion = logic.calc(value);
-      log.info("{}: fuzzyConclusion={}", key, fuzzyConclusion);
-      Double avgFuzzyConclusion = logic.calc(Arrays.asList(avgSpeed.get(key), 0D));
-      log.info("{}: avgFuzzyConclusion={}", key, avgFuzzyConclusion);
-      ret.forEach(loc -> {
-        if(loc.getDeviceId().equals(key)) {
-          loc.setOnCar(avgFuzzyConclusion < fuzzyConclusion);
-        }
-      });
-    });
+    ret.setSpeeds(request.getSpeeds());
+    ret.setConclusion(logic.calc(request.getSpeeds()));
 
     log.info("{}: ret={}", DEBUG_STR, ret);
     return ret;
