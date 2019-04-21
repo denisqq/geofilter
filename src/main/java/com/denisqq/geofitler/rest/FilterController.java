@@ -11,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
-import java.util.List;
 
 @Controller
 @Slf4j
@@ -21,7 +20,7 @@ public class FilterController {
   private FilterService filters;
 
   @GetMapping(value = "/filter", produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<List<DeviceLocationsDto>> filter(final DeviceLocationsRequest request) {
+  public ResponseEntity<DeviceLocationsDto> filter(final DeviceLocationsRequest request) {
     final String DEBUG_STR = "filter";
     log.info("{}: request={}", DEBUG_STR, request);
     return new ResponseEntity<>(filters.filterLocations(request), HttpStatus.OK);

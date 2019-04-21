@@ -4,19 +4,26 @@ import com.denisqq.Logic;
 import com.denisqq.functions.LTrapezoid;
 import com.denisqq.functions.RTrapezoid;
 import com.denisqq.functions.Triangle;
+import com.denisqq.geofitler.dao.LocationsRepository;
 import com.denisqq.geofitler.dto.DeviceLocationsDto;
 import com.denisqq.geofitler.dto.DeviceLocationsRequest;
+import com.denisqq.geofitler.model.DeviceLocations;
 import com.denisqq.rule.Conclusion;
 import com.denisqq.rule.Condition;
 import com.denisqq.rule.Rule;
 import com.denisqq.rule.Variable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
 import java.util.*;
 
 @Component
 @Slf4j
 public class FilterService {
+
+  @Autowired
+  private LocationsRepository repository;
 
   public DeviceLocationsDto filterLocations(final DeviceLocationsRequest request) {
     final String DEBUG_STR = "getLocations";
@@ -33,14 +40,49 @@ public class FilterService {
     return ret;
   }
 
+
+  public void filterLocations(final List<DeviceLocations> locations) {
+    final String DEBUG_STR = "filterLocations";
+    log.info("{}: locations={}", DEBUG_STR, locations);
+
+    DeviceLocations location;
+    int locSize = locations.size();
+    List<Rule> rules = initRules();
+    Logic logic = new Logic();
+    logic.setRules(rules);
+    List<DeviceLocations> modified = new ArrayList<>();
+    for(int i = 0; i < locSize; i++) {
+      location = locations.get(i);
+      if(location.getSpeed() > 2.5 * location.getVariance()) {
+        if(i != locSize - 1) {
+          double conclusion = logic.calc(Arrays.asList(location.getSpeed(), locations.get(i + 1).getSpeed()));
+          double avgConclusion = logic.calc(Collections.singletonList(location.getAvgSpeed()));
+          log.info("{}: device={}, conclusion={}, avgConclusion={}", DEBUG_STR, location, conclusion, avgConclusion);
+          if(conclusion > avgConclusion) {
+            location.setDeleted(true);
+            modified.add(location);
+          }
+        }
+      }
+    }
+    repository.updateAndSave(modified);
+
+//    locations.forEach(x -> {
+//        if (x.getSpeed() > 3 * x.getVariance()) {
+//
+//        }
+//      }
+//    );
+  }
+
   private List<Rule> initRules() {
     final String DEBUG_STR = "initRules";
     log.info("{}:", DEBUG_STR);
     List<Rule> ret = new ArrayList<>();
 
     Triangle onFoot = new Triangle(0.0D, 3.0D, 1.5D);
-    Triangle onCar = new Triangle(3.0D, 15.0D, 8.0D);
-    LTrapezoid big = new LTrapezoid(2.0D, 8.0D);
+    Triangle onCar = new Triangle(10.0D, 35.0D, 17.5D);
+    LTrapezoid big = new LTrapezoid(2.0D, 10.0D);
     RTrapezoid small = new RTrapezoid(0.0D, 3.0D);
 
     Rule r1 = new Rule();
