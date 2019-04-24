@@ -17,6 +17,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Component
 @Slf4j
@@ -45,88 +47,159 @@ public class FilterService {
     final String DEBUG_STR = "filterLocations";
     log.info("{}: locations={}", DEBUG_STR, locations);
 
-    DeviceLocations location;
-    int locSize = locations.size();
+
     List<Rule> rules = initRules();
     Logic logic = new Logic();
     logic.setRules(rules);
+    Logic avgLogic = new Logic();
+    avgLogic.setRules(avgRules());
+
+    Map<UUID, List<DeviceLocations>> mapLoc = locations.stream().collect(Collectors.groupingBy(DeviceLocations::getDeviceId));
     List<DeviceLocations> modified = new ArrayList<>();
-    for(int i = 0; i < locSize; i++) {
-      location = locations.get(i);
-      if(location.getSpeed() > 2.5 * location.getVariance()) {
-        if(i != locSize - 1) {
-          double conclusion = logic.calc(Arrays.asList(location.getSpeed(), locations.get(i + 1).getSpeed()));
-          double avgConclusion = logic.calc(Collections.singletonList(location.getAvgSpeed()));
-          log.info("{}: device={}, conclusion={}, avgConclusion={}", DEBUG_STR, location, conclusion, avgConclusion);
-          if(conclusion > avgConclusion) {
-            location.setDeleted(true);
-            modified.add(location);
+    int limit = 4;
+    mapLoc.forEach((k, v) -> {
+
+      int vSize = v.size();
+      IntStream.range(0, vSize)
+        .forEach(index -> {
+          DeviceLocations location = v.get(index);
+          if (location.getSpeed() > (2.5 * location.getVariance()) && location.getVariance() != 0) {
+            int skip = limit > index ? Math.abs(index - limit) : 0;
+            List<Double> speeds = v.stream()
+              .limit(limit)
+              .skip(skip)
+              .map(DeviceLocations::getSpeed)
+              .collect(Collectors.toList());
+            double conclusion = logic.calc(speeds);
+            double avgConclusion = avgLogic.calc(Collections.singletonList(location.getAvgSpeed()));
+            log.info("{}: device={}, conclusion={}, avgConclusion={}", DEBUG_STR, location, conclusion, avgConclusion);
+            if (conclusion > avgConclusion) {
+              location.setDeleted(true);
+              modified.add(location);
+            }
           }
-        }
-      }
-    }
+        });
+
+    });
+
+
     repository.updateAndSave(modified);
 
-//    locations.forEach(x -> {
-//        if (x.getSpeed() > 3 * x.getVariance()) {
-//
-//        }
-//      }
-//    );
   }
+
 
   private List<Rule> initRules() {
     final String DEBUG_STR = "initRules";
     log.info("{}:", DEBUG_STR);
     List<Rule> ret = new ArrayList<>();
 
-    Triangle onFoot = new Triangle(0.0D, 3.0D, 1.5D);
-    Triangle onCar = new Triangle(10.0D, 35.0D, 17.5D);
-    LTrapezoid big = new LTrapezoid(2.0D, 10.0D);
-    RTrapezoid small = new RTrapezoid(0.0D, 3.0D);
+    Triangle notTeleportation = new Triangle(0.0D, 10.0D, 3.D);
+    Triangle teleportation = new Triangle(7.5D, 35.0D, 17.5D);
+    LTrapezoid big = new LTrapezoid(7.0D, 35.0D);
+    RTrapezoid small = new RTrapezoid(0.0D, 10.0D);
 
     Rule r1 = new Rule();
     r1.setConditionList(Arrays.asList(
       new Condition(big, "Большая", new Variable(0)),
-      new Condition(big, "Большая", new Variable(1))
+      new Condition(big, "Большая", new Variable(1)),
+      new Condition(big, "Большая", new Variable(2)),
+      new Condition(big, "Большая", new Variable(3))
     ));
     r1.setConclusion(
-      new Conclusion(onCar, "На машине", new Variable(0), 1.0D)
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 1.0D)
     );
     ret.add(r1);
 
     Rule r2 = new Rule();
     r2.setConditionList(Arrays.asList(
       new Condition(small, "Маленькая", new Variable(0)),
-      new Condition(small, "Маленькая", new Variable(1))
+      new Condition(small, "Маленькая", new Variable(1)),
+      new Condition(small, "Маленькая", new Variable(2)),
+      new Condition(small, "Маленькая", new Variable(3))
     ));
     r2.setConclusion(
-      new Conclusion(onFoot, "Пешком", new Variable(0), 1.0D)
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 1D)
     );
     ret.add(r2);
 
     Rule r3 = new Rule();
     r3.setConditionList(Arrays.asList(
       new Condition(big, "Большая", new Variable(0)),
-      new Condition(small, "Маленькая", new Variable(1))
+      new Condition(big, "Большая", new Variable(1)),
+      new Condition(small, "Маленькая", new Variable(2)),
+      new Condition(small, "Маленькая", new Variable(3))
     ));
     r3.setConclusion(
-      new Conclusion(onFoot, "Пешком", new Variable(0), 0.5D)
+      new Conclusion(teleportation, "Удалить", new Variable(0), 0.35D)
     );
     ret.add(r3);
 
     Rule r4 = new Rule();
     r4.setConditionList(Arrays.asList(
       new Condition(small, "Маленькая", new Variable(0)),
-      new Condition(big, "Большая", new Variable(1))
+      new Condition(small, "Маленькая", new Variable(1)),
+      new Condition(big, "Большая", new Variable(2)),
+      new Condition(big, "Большая", new Variable(3))
     ));
     r4.setConclusion(
-      new Conclusion(onCar, "На машине", new Variable(0), 0.5D)
+      new Conclusion(teleportation, "Удалить", new Variable(0), 0.35D)
     );
-    ret.add(r3);
+    ret.add(r4);
+
+    Rule r5 = new Rule();
+    r5.setConditionList(Arrays.asList(
+      new Condition(small, "Маленькая", new Variable(0)),
+      new Condition(big, "Большая", new Variable(1)),
+      new Condition(big, "Большая", new Variable(2)),
+      new Condition(big, "Большая", new Variable(3))
+    ));
+    r5.setConclusion(
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.25D)
+    );
+    ret.add(r5);
+
+    Rule r6 = new Rule();
+    r6.setConditionList(Arrays.asList(
+      new Condition(small, "Маленькая", new Variable(0)),
+      new Condition(small, "Маленькая", new Variable(1)),
+      new Condition(small, "Маленькая", new Variable(2)),
+      new Condition(big, "Большая", new Variable(3))
+    ));
+    r6.setConclusion(
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.25D)
+    );
+    ret.add(r6);
 
     log.info("{}: ret={}", DEBUG_STR, ret);
     return ret;
   }
 
+
+  private List<Rule> avgRules() {
+
+    List<Rule> ret = new ArrayList<>();
+    Triangle notTeleportation = new Triangle(0.0D, 10.0D, 3.D);
+    Triangle teleportation = new Triangle(7.5D, 35.0D, 17.5D);
+    LTrapezoid big = new LTrapezoid(7.0D, 35.0D);
+    RTrapezoid small = new RTrapezoid(0.0D, 10.0D);
+
+    Rule r1 = new Rule();
+    r1.setConditionList(Collections.singletonList(
+      new Condition(big, "Большая", new Variable(0))
+    ));
+    r1.setConclusion(
+      new Conclusion(teleportation, "удалить", new Variable(0), 1.0D)
+    );
+
+    Rule r2 = new Rule();
+    r2.setConditionList(Collections.singletonList(
+      new Condition(small, "Маленкая", new Variable(0))
+    ));
+    r2.setConclusion(
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.25D)
+    );
+    ret.add(r2);
+
+    return ret;
+  }
 }

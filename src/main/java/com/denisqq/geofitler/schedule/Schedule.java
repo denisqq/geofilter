@@ -21,7 +21,7 @@ public class Schedule {
   @Autowired
   private FilterService filter;
 
-  @Scheduled(fixedRate = 1000)
+  @Scheduled(fixedRate = 10000)
   public void findGrownUp() {
     final String DEBUG_STR = "findGrownUp";
     log.info("{}: time={}", DEBUG_STR, LocalDateTime.now());

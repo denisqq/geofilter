@@ -124,8 +124,8 @@ import java.util.UUID;
     "       l.date_time,\n" +
     "       l.deleted,\n" +
     "       l.speed,\n" +
-    "       avg(l.speed) over (partition by l.device_id, date_trunc('day', l.date_time))           as \"avgSpeed\",\n" +
-    "       sqrt(var_pop(l.speed) over (partition by l.device_id, date_trunc('day', l.date_time))) as \"variance\"\n" +
+    "       avg(l.speed) over (partition by l.device_id, date_trunc('hour', l.date_time))           as \"avgSpeed\",\n" +
+    "       sqrt(var_pop(l.speed) over (partition by l.device_id, date_trunc('hour', l.date_time))) as \"variance\"\n" +
     "from locations l\n" +
     "--where l.speed > 0\n" +
     "order by l.device_id, l.date_time desc\n",
