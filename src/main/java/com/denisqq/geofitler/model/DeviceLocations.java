@@ -50,7 +50,7 @@ import java.util.UUID;
     "           dl.deleted\n" +
     "--            rank() over (partition by dl.device_id order by dl.date_time desc)\n" +
     "    from filter.t_device_locations dl\n" +
-    "    where dl.altitude != 0 and dl.deleted = false\n" +
+    "    where dl.deleted = false\n" +
     "),\n" +
     "     locations as (\n" +
     "         select dl.id,\n" +

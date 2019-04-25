@@ -63,11 +63,11 @@ public class FilterService {
       IntStream.range(0, vSize)
         .forEach(index -> {
           DeviceLocations location = v.get(index);
-          if (location.getSpeed() > (2.5 * location.getVariance()) && location.getVariance() != 0) {
-            int skip = limit > index ? Math.abs(index - limit) : 0;
+          if (location.getSpeed() > (2 * location.getVariance()) && location.getVariance() != 0) {
+            int skip = limit > index ? -1 : Math.abs(index - limit);
             List<Double> speeds = v.stream()
+              .skip(skip + 1)
               .limit(limit)
-              .skip(skip)
               .map(DeviceLocations::getSpeed)
               .collect(Collectors.toList());
             double conclusion = logic.calc(speeds);
@@ -93,10 +93,10 @@ public class FilterService {
     log.info("{}:", DEBUG_STR);
     List<Rule> ret = new ArrayList<>();
 
-    Triangle notTeleportation = new Triangle(0.0D, 10.0D, 3.D);
+    Triangle notTeleportation = new Triangle(0.0D, 10.0D, 5.5D);
     Triangle teleportation = new Triangle(7.5D, 35.0D, 17.5D);
-    LTrapezoid big = new LTrapezoid(7.0D, 35.0D);
-    RTrapezoid small = new RTrapezoid(0.0D, 10.0D);
+    LTrapezoid big = new LTrapezoid(4.0D, 35.0D);
+    RTrapezoid small = new RTrapezoid(0.0D, 6.0D);
 
     Rule r1 = new Rule();
     r1.setConditionList(Arrays.asList(
@@ -118,7 +118,7 @@ public class FilterService {
       new Condition(small, "Маленькая", new Variable(3))
     ));
     r2.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 1D)
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.5D)
     );
     ret.add(r2);
 
@@ -130,7 +130,7 @@ public class FilterService {
       new Condition(small, "Маленькая", new Variable(3))
     ));
     r3.setConclusion(
-      new Conclusion(teleportation, "Удалить", new Variable(0), 0.35D)
+      new Conclusion(teleportation, "Удалить", new Variable(0), 0.5D)
     );
     ret.add(r3);
 
@@ -142,7 +142,7 @@ public class FilterService {
       new Condition(big, "Большая", new Variable(3))
     ));
     r4.setConclusion(
-      new Conclusion(teleportation, "Удалить", new Variable(0), 0.35D)
+      new Conclusion(teleportation, "Удалить", new Variable(0), 0.5D)
     );
     ret.add(r4);
 
@@ -154,7 +154,7 @@ public class FilterService {
       new Condition(big, "Большая", new Variable(3))
     ));
     r5.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.25D)
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.3D)
     );
     ret.add(r5);
 
@@ -166,9 +166,45 @@ public class FilterService {
       new Condition(big, "Большая", new Variable(3))
     ));
     r6.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.25D)
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.3D)
     );
     ret.add(r6);
+
+    Rule r7 = new Rule();
+    r7.setConditionList(Arrays.asList(
+      new Condition(big, "Большая", new Variable(0)),
+      new Condition(big, "Большая", new Variable(1)),
+      new Condition(big, "Большая", new Variable(2)),
+      new Condition(small, "Маленькая", new Variable(3))
+    ));
+    r7.setConclusion(
+      new Conclusion(notTeleportation, "Удалить", new Variable(0), 0.5D)
+    );
+    ret.add(r7);
+
+    Rule r8 = new Rule();
+    r8.setConditionList(Arrays.asList(
+      new Condition(big, "Большая", new Variable(0)),
+      new Condition(small, "Маленькая", new Variable(1)),
+      new Condition(big, "Большая", new Variable(2)),
+      new Condition(big, "Большая", new Variable(3))
+    ));
+    r8.setConclusion(
+      new Conclusion(notTeleportation, "Удалить", new Variable(0), 0.5D)
+    );
+    ret.add(r8);
+    Rule r9 = new Rule();
+    r9.setConditionList(Arrays.asList(
+      new Condition(big, "Большая", new Variable(0)),
+      new Condition(big, "Большая", new Variable(1)),
+      new Condition(small, "Маленькая", new Variable(2)),
+      new Condition(big, "Большая", new Variable(3))
+    ));
+    r9.setConclusion(
+      new Conclusion(notTeleportation, "Удалить", new Variable(0), 0.5D)
+    );
+    ret.add(r8);
+
 
     log.info("{}: ret={}", DEBUG_STR, ret);
     return ret;
