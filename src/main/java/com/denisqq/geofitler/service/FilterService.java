@@ -63,7 +63,7 @@ public class FilterService {
       IntStream.range(0, vSize)
         .forEach(index -> {
           DeviceLocations location = v.get(index);
-          if (location.getSpeed() > (2 * location.getVariance()) && location.getVariance() != 0) {
+          if ((location.getSpeed() > location.getVariance()) && location.getVariance() != 0) {
             int skip = limit > index ? -1 : Math.abs(index - limit);
             List<Double> speeds = v.stream()
               .skip(skip + 1)
@@ -93,10 +93,10 @@ public class FilterService {
     log.info("{}:", DEBUG_STR);
     List<Rule> ret = new ArrayList<>();
 
-    Triangle notTeleportation = new Triangle(0.0D, 10.0D, 5.5D);
+    Triangle notTeleportation = new Triangle(0.0D, 12.0D, 7.5D);
     Triangle teleportation = new Triangle(7.5D, 35.0D, 17.5D);
-    LTrapezoid big = new LTrapezoid(4.0D, 35.0D);
-    RTrapezoid small = new RTrapezoid(0.0D, 6.0D);
+    LTrapezoid big = new LTrapezoid(12.0D, 60.0D);
+    RTrapezoid small = new RTrapezoid(0.0D, 15.0D);
 
     Rule r1 = new Rule();
     r1.setConditionList(Arrays.asList(
@@ -106,7 +106,7 @@ public class FilterService {
       new Condition(big, "Большая", new Variable(3))
     ));
     r1.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 1.0D)
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.35D)
     );
     ret.add(r1);
 
@@ -118,7 +118,7 @@ public class FilterService {
       new Condition(small, "Маленькая", new Variable(3))
     ));
     r2.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.5D)
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.25D)
     );
     ret.add(r2);
 
@@ -142,7 +142,7 @@ public class FilterService {
       new Condition(big, "Большая", new Variable(3))
     ));
     r4.setConclusion(
-      new Conclusion(teleportation, "Удалить", new Variable(0), 0.5D)
+      new Conclusion(teleportation, "Удалить", new Variable(0), 0.75D)
     );
     ret.add(r4);
 
@@ -154,7 +154,7 @@ public class FilterService {
       new Condition(big, "Большая", new Variable(3))
     ));
     r5.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.3D)
+      new Conclusion(teleportation, "Удалить", new Variable(0), 0.55D)
     );
     ret.add(r5);
 
@@ -166,7 +166,7 @@ public class FilterService {
       new Condition(big, "Большая", new Variable(3))
     ));
     r6.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.3D)
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.25D)
     );
     ret.add(r6);
 
@@ -178,7 +178,7 @@ public class FilterService {
       new Condition(small, "Маленькая", new Variable(3))
     ));
     r7.setConclusion(
-      new Conclusion(notTeleportation, "Удалить", new Variable(0), 0.5D)
+      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.35D)
     );
     ret.add(r7);
 
@@ -190,7 +190,7 @@ public class FilterService {
       new Condition(big, "Большая", new Variable(3))
     ));
     r8.setConclusion(
-      new Conclusion(notTeleportation, "Удалить", new Variable(0), 0.5D)
+      new Conclusion(teleportation, "Удалить", new Variable(0), 0.4D)
     );
     ret.add(r8);
     Rule r9 = new Rule();
@@ -201,9 +201,23 @@ public class FilterService {
       new Condition(big, "Большая", new Variable(3))
     ));
     r9.setConclusion(
-      new Conclusion(notTeleportation, "Удалить", new Variable(0), 0.5D)
+      new Conclusion(teleportation, "Удалить", new Variable(0), 0.35D)
     );
-    ret.add(r8);
+    ret.add(r9);
+
+
+    Rule r10 = new Rule();
+    r10.setConditionList(Arrays.asList(
+      new Condition(small, "Маленькая", new Variable(0)),
+      new Condition(big, "Большая", new Variable(1)),
+      new Condition(small, "Маленькая", new Variable(2)),
+      new Condition(big, "Большая", new Variable(3))
+    ));
+    r10.setConclusion(
+      new Conclusion(teleportation, "Удалить", new Variable(0), 0.55D)
+    );
+    ret.add(r10);
+
 
 
     log.info("{}: ret={}", DEBUG_STR, ret);
@@ -216,7 +230,7 @@ public class FilterService {
     List<Rule> ret = new ArrayList<>();
     Triangle notTeleportation = new Triangle(0.0D, 10.0D, 3.D);
     Triangle teleportation = new Triangle(7.5D, 35.0D, 17.5D);
-    LTrapezoid big = new LTrapezoid(7.0D, 35.0D);
+    LTrapezoid big = new LTrapezoid(7.0D, 60.0D);
     RTrapezoid small = new RTrapezoid(0.0D, 10.0D);
 
     Rule r1 = new Rule();
@@ -224,8 +238,9 @@ public class FilterService {
       new Condition(big, "Большая", new Variable(0))
     ));
     r1.setConclusion(
-      new Conclusion(teleportation, "удалить", new Variable(0), 1.0D)
+      new Conclusion(teleportation, "удалить", new Variable(0), .35D)
     );
+    ret.add(r1);
 
     Rule r2 = new Rule();
     r2.setConditionList(Collections.singletonList(
