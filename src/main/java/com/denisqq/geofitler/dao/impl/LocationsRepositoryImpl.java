@@ -18,9 +18,9 @@ public class LocationsRepositoryImpl implements LocationsRepository {
 
   private static DeviceLocations apply(Object[] x) {
     DeviceLocations dev = (DeviceLocations) x[0];
-    dev.setSpeed((Double) x[1]);
-    dev.setAvgSpeed((Double) x[2]);
-    dev.setVariance((Double) x[3]);
+    dev.setDistance((Double) x[1]);
+    dev.setSpeed((Double) x[2]);
+    dev.setAvgSpeed((Double) x[3]);
 
     return dev;
   }

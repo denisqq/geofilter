@@ -32,9 +32,9 @@ import java.util.UUID;
     )
   },
   columns = {
+    @ColumnResult(name = "distance", type = Double.class),
     @ColumnResult(name = "speed", type = Double.class),
-    @ColumnResult(name = "avgSpeed", type = Double.class),
-    @ColumnResult(name = "variance", type = Double.class)
+    @ColumnResult(name = "avgSpeed", type = Double.class)
   }
 )
 @NamedNativeQuery(
@@ -50,6 +50,7 @@ import java.util.UUID;
     "           dl.deleted\n" +
     "--            rank() over (partition by dl.device_id order by dl.date_time desc)\n" +
     "    from filter.t_device_locations dl\n" +
+    "--     where dl.altitude != 0\n" +
     "    where dl.deleted = false\n" +
     "),\n" +
     "     locations as (\n" +
@@ -61,53 +62,55 @@ import java.util.UUID;
     "                dl.altitude,\n" +
     "                dl.date_time,\n" +
     "                dl.deleted,\n" +
-    "                earth_distance(ll_to_earth(dl.latitude, dl.longitude),\n" +
-    "                               ll_to_earth(dl.latitude2, dl.longitude2)) /\n" +
+    "                filter.earth_distance(filter.ll_to_earth(dl.latitude, dl.longitude),\n" +
+    "                               filter.ll_to_earth(dl.latitude2, dl.longitude2)) distance,\n" +
+    "                filter.earth_distance(filter.ll_to_earth(dl.latitude, dl.longitude),\n" +
+    "                               filter.ll_to_earth(dl.latitude2, dl.longitude2)) /\n" +
     "                filter.to_seconds(case\n" +
     "                                      when filter.to_seconds(dl.date_time2 - dl.date_time) = 0\n" +
     "                                          then '1 second'\n" +
     "                                      else\n" +
-    "                                          dl.date_time - dl.date_time2 end) * 3.6\n" +
+    "                                          dl.date_time2 - dl.date_time end) * 3.6\n" +
     "                    speed\n" +
     "         from (\n" +
     "                  select *,\n" +
     "                         case\n" +
     "                             when filter.abs(date_trunc('day', lead(dl.date_time)\n" +
-    "                                                               over (partition by dl.device_id order by dl.date_time desc)) -\n" +
+    "                                                               over (partition by dl.device_id order by dl.date_time asc)) -\n" +
     "                                             date_trunc('day', dl.date_time)) <\n" +
     "                                  '1 Day'\n" +
     "                                 then lead(dl.longitude, 1, dl.longitude)\n" +
-    "                                      over (partition by dl.device_id order by dl.date_time desc)\n" +
+    "                                      over (partition by dl.device_id order by dl.date_time asc)\n" +
     "                             else\n" +
     "                                 dl.longitude\n" +
     "                             end longitude2,\n" +
     "                         case\n" +
     "                             when filter.abs(date_trunc('day', lead(dl.date_time)\n" +
-    "                                                               over (partition by dl.device_id order by dl.date_time desc)) -\n" +
+    "                                                               over (partition by dl.device_id order by dl.date_time asc)) -\n" +
     "                                             date_trunc('day', dl.date_time)) <\n" +
     "                                  '1 Day'\n" +
     "                                 then lead(dl.latitude, 1, dl.latitude)\n" +
-    "                                      over (partition by dl.device_id order by dl.date_time desc)\n" +
+    "                                      over (partition by dl.device_id order by dl.date_time asc)\n" +
     "                             else\n" +
     "                                 dl.latitude\n" +
     "                             end latitude2,\n" +
     "                         case\n" +
     "                             when filter.abs(date_trunc('day', lead(dl.date_time)\n" +
-    "                                                               over (partition by dl.device_id order by dl.date_time desc)) -\n" +
+    "                                                               over (partition by dl.device_id order by dl.date_time asc)) -\n" +
     "                                             date_trunc('day', dl.date_time)) <\n" +
     "                                  '1 Day'\n" +
     "                                 then lead(dl.altitude, 1, dl.altitude)\n" +
-    "                                      over (partition by dl.device_id order by dl.date_time desc)\n" +
+    "                                      over (partition by dl.device_id order by dl.date_time asc)\n" +
     "                             else\n" +
     "                                 dl.altitude\n" +
     "                             end altitude2,\n" +
     "                         case\n" +
     "                             when filter.abs(date_trunc('day', lead(dl.date_time)\n" +
-    "                                                               over (partition by dl.device_id order by dl.date_time desc)) -\n" +
+    "                                                               over (partition by dl.device_id order by dl.date_time asc)) -\n" +
     "                                             date_trunc('day', dl.date_time)) <\n" +
     "                                  '1 Day'\n" +
     "                                 then lead(dl.date_time, 1, dl.date_time)\n" +
-    "                                      over (partition by dl.device_id order by dl.date_time desc)\n" +
+    "                                      over (partition by dl.device_id order by dl.date_time asc)\n" +
     "                             else\n" +
     "                                 dl.date_time\n" +
     "                             end date_time2\n" +
@@ -123,12 +126,12 @@ import java.util.UUID;
     "       l.altitude,\n" +
     "       l.date_time,\n" +
     "       l.deleted,\n" +
+    "       l.distance,\n" +
     "       l.speed,\n" +
-    "       avg(l.speed) over (partition by l.device_id, date_trunc('hour', l.date_time))           as \"avgSpeed\",\n" +
+    "       avg(l.speed) over (partition by l.device_id, date_trunc('hour', l.date_time)  rows between current row and 4 following ) as \"avgSpeed\",\n" +
     "       sqrt(var_pop(l.speed) over (partition by l.device_id, date_trunc('hour', l.date_time))) as \"variance\"\n" +
     "from locations l\n" +
-    "--where l.speed > 0\n" +
-    "order by l.device_id, l.date_time desc\n",
+    "order by l.device_id, l.employee_id, l.date_time asc",
   resultSetMapping = "DeviceLocationsMapping"
 )
 public class DeviceLocations implements Serializable {
@@ -175,5 +178,5 @@ public class DeviceLocations implements Serializable {
   private Double avgSpeed;
 
   @Transient
-  private Double variance;
+  private Double distance;
 }

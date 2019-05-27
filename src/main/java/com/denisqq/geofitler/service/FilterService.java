@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -58,32 +59,38 @@ public class FilterService {
     List<DeviceLocations> modified = new ArrayList<>();
     int limit = 4;
     mapLoc.forEach((k, v) -> {
-
       int vSize = v.size();
-      IntStream.range(0, vSize)
+
+
+      IntStream.range(0, vSize - 1)
         .forEach(index -> {
-          DeviceLocations location = v.get(index);
-          if ((location.getSpeed() > location.getVariance()) && location.getVariance() != 0) {
-            int skip = limit > index ? -1 : Math.abs(index - limit);
-            List<Double> speeds = v.stream()
-              .skip(skip + 1)
-              .limit(limit)
-              .map(DeviceLocations::getSpeed)
-              .collect(Collectors.toList());
-            double conclusion = logic.calc(speeds);
-            double avgConclusion = avgLogic.calc(Collections.singletonList(location.getAvgSpeed()));
-            log.info("{}: device={}, conclusion={}, avgConclusion={}", DEBUG_STR, location, conclusion, avgConclusion);
-            if (conclusion > avgConclusion) {
-              location.setDeleted(true);
-              modified.add(location);
+          DeviceLocations location = locations.get(index);
+          double vMax = avgLogic.calc(Collections.singletonList(location.getAvgSpeed())) * location.getAvgSpeed();
+          double dRMax = logic.calc(Collections.singletonList(location.getAvgSpeed()));
+          if ((location.getSpeed() - v.get(index + 1).getSpeed()) > vMax) {
+            if(index < vSize - 5) {
+              IntStream.range(index + 1, index + 5).forEach(j -> {
+                DeviceLocations dl = v.get(j);
+                double distance = distance(dl.getLatitude(), location.getLatitude(), dl.getLongitude(), location.getLongitude());
+                if(distance < location.getDistance() * dRMax) {
+//                  modified.addAll(v.stream().skip(index).limit(j).peek(x -> x.setDeleted(true)).collect(Collectors.toList()));
+
+                  location.setDeleted(true);
+                  modified.add(location);
+                }
+              });
             }
           }
+
         });
+
 
     });
 
 
     repository.updateAndSave(modified);
+
+    log.info("{}: endTime={}", DEBUG_STR, LocalDateTime.now());
 
   }
 
@@ -91,154 +98,19 @@ public class FilterService {
   private List<Rule> initRules() {
     final String DEBUG_STR = "initRules";
     log.info("{}:", DEBUG_STR);
-    List<Rule> ret = new ArrayList<>();
-
-    Triangle notTeleportation = new Triangle(0.0D, 12.0D, 7.5D);
-    Triangle teleportation = new Triangle(7.5D, 35.0D, 17.5D);
-    LTrapezoid big = new LTrapezoid(12.0D, 60.0D);
+    Triangle vMaxSmall = new Triangle(0.0D, 500.0D, 250.D);
+    Triangle vMaxLarge = new Triangle(200D, 1000.0D, 500.0D);
+    LTrapezoid big = new LTrapezoid(8.0D, 75.0D);
     RTrapezoid small = new RTrapezoid(0.0D, 15.0D);
 
-    Rule r1 = new Rule();
-    r1.setConditionList(Arrays.asList(
-      new Condition(big, "Большая", new Variable(0)),
-      new Condition(big, "Большая", new Variable(1)),
-      new Condition(big, "Большая", new Variable(2)),
-      new Condition(big, "Большая", new Variable(3))
-    ));
-    r1.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.35D)
-    );
-    ret.add(r1);
-
-    Rule r2 = new Rule();
-    r2.setConditionList(Arrays.asList(
-      new Condition(small, "Маленькая", new Variable(0)),
-      new Condition(small, "Маленькая", new Variable(1)),
-      new Condition(small, "Маленькая", new Variable(2)),
-      new Condition(small, "Маленькая", new Variable(3))
-    ));
-    r2.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.25D)
-    );
-    ret.add(r2);
-
-    Rule r3 = new Rule();
-    r3.setConditionList(Arrays.asList(
-      new Condition(big, "Большая", new Variable(0)),
-      new Condition(big, "Большая", new Variable(1)),
-      new Condition(small, "Маленькая", new Variable(2)),
-      new Condition(small, "Маленькая", new Variable(3))
-    ));
-    r3.setConclusion(
-      new Conclusion(teleportation, "Удалить", new Variable(0), 0.5D)
-    );
-    ret.add(r3);
-
-    Rule r4 = new Rule();
-    r4.setConditionList(Arrays.asList(
-      new Condition(small, "Маленькая", new Variable(0)),
-      new Condition(small, "Маленькая", new Variable(1)),
-      new Condition(big, "Большая", new Variable(2)),
-      new Condition(big, "Большая", new Variable(3))
-    ));
-    r4.setConclusion(
-      new Conclusion(teleportation, "Удалить", new Variable(0), 0.75D)
-    );
-    ret.add(r4);
-
-    Rule r5 = new Rule();
-    r5.setConditionList(Arrays.asList(
-      new Condition(small, "Маленькая", new Variable(0)),
-      new Condition(big, "Большая", new Variable(1)),
-      new Condition(big, "Большая", new Variable(2)),
-      new Condition(big, "Большая", new Variable(3))
-    ));
-    r5.setConclusion(
-      new Conclusion(teleportation, "Удалить", new Variable(0), 0.55D)
-    );
-    ret.add(r5);
-
-    Rule r6 = new Rule();
-    r6.setConditionList(Arrays.asList(
-      new Condition(small, "Маленькая", new Variable(0)),
-      new Condition(small, "Маленькая", new Variable(1)),
-      new Condition(small, "Маленькая", new Variable(2)),
-      new Condition(big, "Большая", new Variable(3))
-    ));
-    r6.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.25D)
-    );
-    ret.add(r6);
-
-    Rule r7 = new Rule();
-    r7.setConditionList(Arrays.asList(
-      new Condition(big, "Большая", new Variable(0)),
-      new Condition(big, "Большая", new Variable(1)),
-      new Condition(big, "Большая", new Variable(2)),
-      new Condition(small, "Маленькая", new Variable(3))
-    ));
-    r7.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.35D)
-    );
-    ret.add(r7);
-
-    Rule r8 = new Rule();
-    r8.setConditionList(Arrays.asList(
-      new Condition(big, "Большая", new Variable(0)),
-      new Condition(small, "Маленькая", new Variable(1)),
-      new Condition(big, "Большая", new Variable(2)),
-      new Condition(big, "Большая", new Variable(3))
-    ));
-    r8.setConclusion(
-      new Conclusion(teleportation, "Удалить", new Variable(0), 0.4D)
-    );
-    ret.add(r8);
-    Rule r9 = new Rule();
-    r9.setConditionList(Arrays.asList(
-      new Condition(big, "Большая", new Variable(0)),
-      new Condition(big, "Большая", new Variable(1)),
-      new Condition(small, "Маленькая", new Variable(2)),
-      new Condition(big, "Большая", new Variable(3))
-    ));
-    r9.setConclusion(
-      new Conclusion(teleportation, "Удалить", new Variable(0), 0.35D)
-    );
-    ret.add(r9);
-
-
-    Rule r10 = new Rule();
-    r10.setConditionList(Arrays.asList(
-      new Condition(small, "Маленькая", new Variable(0)),
-      new Condition(big, "Большая", new Variable(1)),
-      new Condition(small, "Маленькая", new Variable(2)),
-      new Condition(big, "Большая", new Variable(3))
-    ));
-    r10.setConclusion(
-      new Conclusion(teleportation, "Удалить", new Variable(0), 0.55D)
-    );
-    ret.add(r10);
-
-
-
-    log.info("{}: ret={}", DEBUG_STR, ret);
-    return ret;
-  }
-
-
-  private List<Rule> avgRules() {
-
     List<Rule> ret = new ArrayList<>();
-    Triangle notTeleportation = new Triangle(0.0D, 10.0D, 3.D);
-    Triangle teleportation = new Triangle(7.5D, 35.0D, 17.5D);
-    LTrapezoid big = new LTrapezoid(7.0D, 60.0D);
-    RTrapezoid small = new RTrapezoid(0.0D, 10.0D);
 
     Rule r1 = new Rule();
     r1.setConditionList(Collections.singletonList(
       new Condition(big, "Большая", new Variable(0))
     ));
     r1.setConclusion(
-      new Conclusion(teleportation, "удалить", new Variable(0), .35D)
+      new Conclusion(vMaxLarge, "Максимальное расстояние большое", new Variable(0), 0.95D)
     );
     ret.add(r1);
 
@@ -247,10 +119,67 @@ public class FilterService {
       new Condition(small, "Маленкая", new Variable(0))
     ));
     r2.setConclusion(
-      new Conclusion(notTeleportation, "Оставить", new Variable(0), 0.25D)
+      new Conclusion(vMaxSmall, "Максимальное расстояние малое", new Variable(0), 0.45D)
     );
     ret.add(r2);
 
+
+    log.info("{}: ret={}", DEBUG_STR, ret);
     return ret;
+  }
+
+
+  private List<Rule> avgRules() {
+    final String DEBUG_STR = "avgRules";
+    log.info("{}:", DEBUG_STR);
+
+
+    Triangle vMaxSmall = new Triangle(0.0D, 15.0D, 5.D);
+    Triangle vMaxLarge = new Triangle(5.5D, 35.0D, 17.5D);
+    LTrapezoid big = new LTrapezoid(8.0D, 70.0D);
+    RTrapezoid small = new RTrapezoid(0.0D, 20.0D);
+
+    List<Rule> ret = new ArrayList<>();
+
+    Rule r1 = new Rule();
+    r1.setConditionList(Collections.singletonList(
+      new Condition(big, "Большая", new Variable(0))
+    ));
+    r1.setConclusion(
+      new Conclusion(vMaxLarge, "Максимальная скорость большая", new Variable(0), 0.95D)
+    );
+    ret.add(r1);
+
+    Rule r2 = new Rule();
+    r2.setConditionList(Collections.singletonList(
+      new Condition(small, "Маленкая", new Variable(0))
+    ));
+    r2.setConclusion(
+      new Conclusion(vMaxSmall, "Максимальная скорсоть маленькая", new Variable(0), 0.45D)
+    );
+    ret.add(r2);
+
+
+    log.info("{}: ret={}", DEBUG_STR, ret);
+    return ret;
+  }
+
+
+  public static double distance(double lat1, double lat2, double lon1,
+                                double lon2) {
+
+    final int R = 6371; // Radius of the earth
+
+    double latDistance = Math.toRadians(lat2 - lat1);
+    double lonDistance = Math.toRadians(lon2 - lon1);
+    double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+      + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+      * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+    double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    double distance = R * c * 1000; // convert to meters
+
+    distance = Math.pow(distance, 2);
+
+    return Math.sqrt(distance);
   }
 }
