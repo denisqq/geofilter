@@ -22,7 +22,7 @@
     <delombok-maven-plugin.version>1.18.4.0</delombok-maven-plugin.version>
     <lombok.version>1.18.4</lombok.version>
     <fuzzy-logic.version>1.0-SNAPSHOT</fuzzy-logic.version>
-    <jackson.version>2.9.8</jackson.version>
+    <jackson.version>2.10.0</jackson.version>
   </properties>
 
   <dependencies>
