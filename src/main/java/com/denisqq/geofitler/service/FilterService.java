@@ -1,6 +1,6 @@
 package com.denisqq.geofitler.service;
 
-import com.denisqq.Logic;
+import com.denisqq.FuzzyLogic;
 import com.denisqq.functions.LTrapezoid;
 import com.denisqq.functions.RTrapezoid;
 import com.denisqq.functions.Triangle;
@@ -8,165 +8,150 @@ import com.denisqq.geofitler.dao.LocationsRepository;
 import com.denisqq.geofitler.dto.DeviceLocationsDto;
 import com.denisqq.geofitler.dto.DeviceLocationsRequest;
 import com.denisqq.geofitler.model.DeviceLocations;
-import com.denisqq.rule.Conclusion;
-import com.denisqq.rule.Condition;
 import com.denisqq.rule.Rule;
-import com.denisqq.rule.Variable;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+
+import static java.util.stream.Collectors.toList;
 
 @Component
 @Slf4j
 public class FilterService {
 
-  @Autowired
-  private LocationsRepository repository;
+  private final LocationsRepository repository;
+  private final FuzzyLogic speedLogic;
+  private final FuzzyLogic distanceLogic;
+
+  public FilterService(LocationsRepository repository, FuzzyLogic speedLogic, FuzzyLogic distanceLogic) {
+    this.repository = repository;
+    this.speedLogic = speedLogic;
+    this.distanceLogic = distanceLogic;
+  }
 
   public DeviceLocationsDto filterLocations(final DeviceLocationsRequest request) {
     final String DEBUG_STR = "getLocations";
     log.info("{}:", DEBUG_STR);
 
     DeviceLocationsDto ret = new DeviceLocationsDto();
-    List<Rule> rules = initRules();
-    Logic logic = new Logic();
-    logic.setRules(rules);
-    ret.setSpeeds(request.getSpeeds());
-    ret.setConclusion(logic.calc(request.getSpeeds()));
+//    List<Rule> rules = initRules();
+//    Logic logic = new Logic();
+//    logic.setRules(rules);
+//    ret.setSpeeds(request.getSpeeds());
+//    ret.setConclusion(logic.calc(request.getSpeeds()));
 
     log.info("{}: ret={}", DEBUG_STR, ret);
     return ret;
   }
 
 
-  public void filterLocations(final List<DeviceLocations> locations) {
+  public List<DeviceLocations> filterLocations(final List<DeviceLocations> locations) {
     final String DEBUG_STR = "filterLocations";
     log.info("{}: locations={}", DEBUG_STR, locations);
 
+    Map<UUID, List<DeviceLocations>> deviceLocationsMap = locations.stream().collect(Collectors.groupingBy(DeviceLocations::getDeviceId));
 
-    List<Rule> rules = initRules();
-    Logic logic = new Logic();
-    logic.setRules(rules);
-    Logic avgLogic = new Logic();
-    avgLogic.setRules(avgRules());
+    List<DeviceLocations> ret = new ArrayList<>();
 
-    Map<UUID, List<DeviceLocations>> mapLoc = locations.stream().collect(Collectors.groupingBy(DeviceLocations::getDeviceId));
-    List<DeviceLocations> modified = new ArrayList<>();
-    int limit = 4;
-    mapLoc.forEach((k, v) -> {
-      int vSize = v.size();
+    Set<DeviceLocations> toDelete = new HashSet<>();
+    deviceLocationsMap.forEach((k, v) -> {
+
+      List<DeviceLocations> deviceLocationsList = v.stream().sorted(Comparator.comparing(DeviceLocations::getDateTime))
+        .collect(Collectors.toUnmodifiableList());
+
+      calculateSpeed(deviceLocationsList.listIterator());
+      double avgSpeed = deviceLocationsList.stream().mapToDouble(DeviceLocations::getSpeed).average().getAsDouble();
+      double avgDistance = deviceLocationsList.stream().mapToDouble(DeviceLocations::getDistance).average().getAsDouble();
+
+      log.debug("{} avgSpeed={}", k, avgSpeed);
+      double maxAvgSpeed = speedLogic.calc(Collections.singletonList(avgSpeed)) * avgSpeed;
+      double maxAvgDistance = distanceLogic.calc(Collections.singletonList(avgSpeed)) * avgDistance;
 
 
-      IntStream.range(0, vSize - 1)
-        .forEach(index -> {
-          DeviceLocations location = locations.get(index);
-          double vMax = avgLogic.calc(Collections.singletonList(location.getAvgSpeed())) * location.getAvgSpeed();
-          double dRMax = logic.calc(Collections.singletonList(location.getAvgSpeed()));
-          if ((location.getSpeed() - v.get(index + 1).getSpeed()) > vMax) {
-            if(index < vSize - 5) {
-              IntStream.range(index + 1, index + 5).forEach(j -> {
-                DeviceLocations dl = v.get(j);
-                double distance = distance(dl.getLatitude(), location.getLatitude(), dl.getLongitude(), location.getLongitude());
-                if(distance < location.getDistance() * dRMax) {
-//                  modified.addAll(v.stream().skip(index).limit(j).peek(x -> x.setDeleted(true)).collect(Collectors.toList()));
+      final int length = deviceLocationsList.size();
 
-                  location.setDeleted(true);
-                  modified.add(location);
-                }
-              });
+      int i = 0;
+      while (i < length) {
+        DeviceLocations current = deviceLocationsList.get(i);
+        final int nextIndex = i + 1;
+        if (nextIndex != length) {
+          DeviceLocations next = deviceLocationsList.get(nextIndex);
+
+          final double speedDifference = Math.abs(current.getSpeed() - next.getSpeed());
+          if (speedDifference > maxAvgSpeed) {
+            double closestDistance = next.getDistance();
+            int closestLocationIndex = nextIndex;
+            for (int j = nextIndex; j < length; j++) {
+              DeviceLocations deviceLocations = deviceLocationsList.get(j);
+              double distance = distance(current.getLatitude(), deviceLocations.getLatitude(), current.getLongitude(), deviceLocations.getLongitude());
+              if (distance < closestDistance) {
+                closestDistance = distance;
+                closestLocationIndex = j;
+              }
             }
+            if (closestDistance < maxAvgDistance) {
+              toDelete.addAll(deviceLocationsList.subList(nextIndex, closestLocationIndex));
+              i = closestLocationIndex;
+            } else {
+              i++;
+            }
+          } else {
+            i++;
           }
-
-        });
-
+          if (!toDelete.contains(current)) {
+            ret.add(current);
+          }
+        } else {
+          ret.add(current);
+          i++;
+        }
+      }
+      toDelete.forEach(deviceLocations -> deviceLocations.setDeleted(true));
 
     });
 
 
-    repository.updateAndSave(modified);
-
     log.info("{}: endTime={}", DEBUG_STR, LocalDateTime.now());
 
-  }
 
-
-  private List<Rule> initRules() {
-    final String DEBUG_STR = "initRules";
-    log.info("{}:", DEBUG_STR);
-    Triangle vMaxSmall = new Triangle(0.0D, 500.0D, 250.D);
-    Triangle vMaxLarge = new Triangle(200D, 1000.0D, 500.0D);
-    LTrapezoid big = new LTrapezoid(8.0D, 75.0D);
-    RTrapezoid small = new RTrapezoid(0.0D, 15.0D);
-
-    List<Rule> ret = new ArrayList<>();
-
-    Rule r1 = new Rule();
-    r1.setConditionList(Collections.singletonList(
-      new Condition(big, "Большая", new Variable(0))
-    ));
-    r1.setConclusion(
-      new Conclusion(vMaxLarge, "Максимальное расстояние большое", new Variable(0), 0.95D)
-    );
-    ret.add(r1);
-
-    Rule r2 = new Rule();
-    r2.setConditionList(Collections.singletonList(
-      new Condition(small, "Маленкая", new Variable(0))
-    ));
-    r2.setConclusion(
-      new Conclusion(vMaxSmall, "Максимальное расстояние малое", new Variable(0), 0.45D)
-    );
-    ret.add(r2);
-
-
-    log.info("{}: ret={}", DEBUG_STR, ret);
     return ret;
   }
 
+  private static void calculateSpeed(ListIterator<DeviceLocations> deviceLocationsIterator) {
+    DeviceLocations prevDeviceLocation = null;
+    while (deviceLocationsIterator.hasNext()) {
+      double speed = 0.0D;
+      double distance = 0.0D;
+      DeviceLocations currentDeviceLocation = deviceLocationsIterator.next();
+      if (prevDeviceLocation != null) {
+        distance = distance(currentDeviceLocation.getLatitude(), prevDeviceLocation.getLatitude(), currentDeviceLocation.getLongitude(), prevDeviceLocation.getLongitude()); //Метры
+        long secondsBetweenLocation = Duration.between(prevDeviceLocation.getDateTime(), currentDeviceLocation.getDateTime()).getSeconds(); //Секунды
+        speed = calculateSpeed(distance, secondsBetweenLocation); // КМ\Ч
 
-  private List<Rule> avgRules() {
-    final String DEBUG_STR = "avgRules";
-    log.info("{}:", DEBUG_STR);
-
-
-    Triangle vMaxSmall = new Triangle(0.0D, 15.0D, 5.D);
-    Triangle vMaxLarge = new Triangle(5.5D, 35.0D, 17.5D);
-    LTrapezoid big = new LTrapezoid(8.0D, 70.0D);
-    RTrapezoid small = new RTrapezoid(0.0D, 20.0D);
-
-    List<Rule> ret = new ArrayList<>();
-
-    Rule r1 = new Rule();
-    r1.setConditionList(Collections.singletonList(
-      new Condition(big, "Большая", new Variable(0))
-    ));
-    r1.setConclusion(
-      new Conclusion(vMaxLarge, "Максимальная скорость большая", new Variable(0), 0.95D)
-    );
-    ret.add(r1);
-
-    Rule r2 = new Rule();
-    r2.setConditionList(Collections.singletonList(
-      new Condition(small, "Маленкая", new Variable(0))
-    ));
-    r2.setConclusion(
-      new Conclusion(vMaxSmall, "Максимальная скорсоть маленькая", new Variable(0), 0.45D)
-    );
-    ret.add(r2);
-
-
-    log.info("{}: ret={}", DEBUG_STR, ret);
-    return ret;
+      }
+      currentDeviceLocation.setDistance(distance);
+      currentDeviceLocation.setSpeed(speed);
+      prevDeviceLocation = currentDeviceLocation;
+    }
   }
 
 
-  public static double distance(double lat1, double lat2, double lon1,
-                                double lon2) {
+  private static double calculateSpeedBetweenLocations(DeviceLocations d1, DeviceLocations d2) {
+    double distance = distance(d1.getLatitude(), d2.getLatitude(), d1.getLongitude(), d2.getLongitude()); //Метры
+    long secondsBetweenLocation = Duration.between(d2.getDateTime(), d1.getDateTime()).getSeconds(); //Секунды
+    return calculateSpeed(distance, secondsBetweenLocation);
+  }
+
+  private static double calculateSpeed(double distance, long seconds) {
+    return distance / seconds * 3.6D;
+  }
+
+  private static double distance(double lat1, double lat2, double lon1,
+                                 double lon2) {
 
     final int R = 6371; // Radius of the earth
 

@@ -20,7 +20,7 @@ public class LocationsRepositoryImpl implements LocationsRepository {
     DeviceLocations dev = (DeviceLocations) x[0];
     dev.setDistance((Double) x[1]);
     dev.setSpeed((Double) x[2]);
-    dev.setAvgSpeed((Double) x[3]);
+//    dev.setAvgSpeed((Double) x[3]);
 
     return dev;
   }

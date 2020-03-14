@@ -6,14 +6,17 @@ import org.hibernate.annotations.Type;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.UUID;
+
 
 @Entity
 @Table(name = "t_device_locations")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 @SqlResultSetMapping(
   name = "DeviceLocationsMapping",
   entities = {
@@ -157,7 +160,7 @@ public class DeviceLocations implements Serializable {
 
   @Column(name = "date_time")
   @Temporal(TemporalType.TIMESTAMP)
-  private Date dateTime;
+  private LocalDateTime dateTime;
 
   @Column(name = "latitude")
   private Double latitude;
@@ -173,9 +176,6 @@ public class DeviceLocations implements Serializable {
 
   @Transient
   private Double speed;
-
-  @Transient
-  private Double avgSpeed;
 
   @Transient
   private Double distance;
